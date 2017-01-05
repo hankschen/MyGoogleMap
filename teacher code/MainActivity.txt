@@ -1,0 +1,479 @@
+package com.hui.class1_googlemap;
+
+import android.app.AlertDialog;
+import android.content.DialogInterface;
+import android.graphics.Color;
+import android.location.Address;
+import android.location.Criteria;
+import android.location.Geocoder;
+import android.location.Location;
+import android.location.LocationListener;
+import android.location.LocationManager;
+import android.os.Handler;
+import android.os.Message;
+import android.support.v4.app.FragmentActivity;
+import android.os.Bundle;
+import android.view.View;
+import android.widget.AdapterView;
+import android.widget.CheckBox;
+import android.widget.EditText;
+import android.widget.Spinner;
+import android.widget.TextView;
+import android.widget.Toast;
+
+import com.google.android.gms.maps.CameraUpdateFactory;
+import com.google.android.gms.maps.GoogleMap;
+import com.google.android.gms.maps.SupportMapFragment;
+import com.google.android.gms.maps.UiSettings;
+import com.google.android.gms.maps.model.BitmapDescriptorFactory;
+import com.google.android.gms.maps.model.CircleOptions;
+import com.google.android.gms.maps.model.GroundOverlayOptions;
+import com.google.android.gms.maps.model.LatLng;
+import com.google.android.gms.maps.model.Marker;
+import com.google.android.gms.maps.model.MarkerOptions;
+import com.google.android.gms.maps.model.PolygonOptions;
+import com.google.android.gms.maps.model.Polyline;
+import com.google.android.gms.maps.model.PolylineOptions;
+
+import org.json.JSONException;
+import org.json.JSONObject;
+
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.net.MalformedURLException;
+import java.net.URL;
+import java.net.URLConnection;
+import java.util.ArrayList;
+import java.util.List;
+
+public class MapsActivity extends FragmentActivity {
+    Spinner spMapType;
+    CheckBox cbTraffic,cbMyLocationButton,cbMyLocationLayer,cbZoomControl,
+             cbCompass,cbScrollGesture,cbZoomGesture,cbRotateGesture,cbTileGesture;
+    EditText etAddress;
+
+    private GoogleMap mMap; // Might be null if Google Play services APK is not available.
+    UiSettings settings;
+    LatLng point1;
+
+    LatLng startPoint;
+    LatLng endPoint;
+
+    Handler handler;
+    ArrayList<LatLng> points;
+
+    LocationManager locationManager;
+
+//    String provider=LocationManager.NETWORK_PROVIDER;
+    String provider;
+
+
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        setContentView(R.layout.activity_map);
+        setUpMapIfNeeded();
+        findviews();
+        handler=new Handler(){
+            @Override
+            public void handleMessage(Message msg) {
+                super.handleMessage(msg);
+                if(mMap!=null) {
+                    PolylineOptions polylineOptions=new PolylineOptions()
+                            .color(0x660000FF)
+                            .width(15);
+                    for (LatLng p : points) {
+                        polylineOptions.add(p);
+                    }
+                    mMap.addPolyline(polylineOptions);
+                }
+
+            }
+        };
+
+        locationManager=(LocationManager)getSystemService(LOCATION_SERVICE);
+        getLocation();
+        locationManager.requestLocationUpdates(provider, 10 * 1000, 10, locationListener);
+    }
+
+    void findviews(){
+        spMapType=(Spinner)findViewById(R.id.spinner);
+        spMapType.setOnItemSelectedListener(spMapTypeListener);
+        cbTraffic=(CheckBox)findViewById(R.id.checkBox);
+        cbTraffic.setOnClickListener(cbsListener);
+        cbMyLocationButton=(CheckBox)findViewById(R.id.checkBox2);
+        cbMyLocationButton.setOnClickListener(cbsListener);
+        cbMyLocationLayer=(CheckBox)findViewById(R.id.checkBox3);
+        cbMyLocationLayer.setOnClickListener(cbsListener);
+        cbZoomControl=(CheckBox)findViewById(R.id.checkBox4);
+        cbZoomControl.setOnClickListener(cbsListener);
+        cbCompass=(CheckBox)findViewById(R.id.checkBox5);
+        cbCompass.setOnClickListener(cbsListener);
+        cbScrollGesture=(CheckBox)findViewById(R.id.checkBox6);
+        cbScrollGesture.setOnClickListener(cbsListener);
+        cbZoomGesture=(CheckBox)findViewById(R.id.checkBox7);
+        cbZoomGesture.setOnClickListener(cbsListener);
+        cbRotateGesture=(CheckBox)findViewById(R.id.checkBox8);
+        cbRotateGesture.setOnClickListener(cbsListener);
+        cbTileGesture=(CheckBox)findViewById(R.id.checkBox9);
+        cbTileGesture.setOnClickListener(cbsListener);
+        etAddress=(EditText)findViewById(R.id.editText);
+        etAddress.setOnLongClickListener(etAddressLongClick);
+    }
+
+    View.OnLongClickListener etAddressLongClick=new View.OnLongClickListener() {
+        @Override
+        public boolean onLongClick(View v) {
+            getGeoCoder();
+            return true;
+        }
+    };
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        setUpMapIfNeeded();
+    }
+
+
+    private void setUpMapIfNeeded() {
+        // Do a null check to confirm that we have not already instantiated the map.
+        if (mMap == null) {
+            // Try to obtain the map from the SupportMapFragment.
+            mMap = ((SupportMapFragment) getSupportFragmentManager().findFragmentById(R.id.map))
+                    .getMap();
+            // Check if we were successful in obtaining the map.
+            if (mMap != null) {
+                settings=mMap.getUiSettings();
+                mMap.setOnMapLongClickListener(new GoogleMap.OnMapLongClickListener() {
+                    @Override
+                    public void onMapLongClick(LatLng latLng) {
+                        point1=latLng;
+                        displayDialog();
+
+                    }
+                });
+
+                mMap.setInfoWindowAdapter(new GoogleMap.InfoWindowAdapter() {
+                    @Override
+                    public View getInfoWindow(Marker marker) {
+                        return null;
+                    }
+
+                    @Override
+                    public View getInfoContents(Marker marker) {
+                        View myView=getLayoutInflater().inflate(R.layout.info_windows_view,null);
+                        TextView tvTitle=(TextView)myView.findViewById(R.id.textView);
+                        TextView tvSnippet=(TextView)myView.findViewById(R.id.textView2);
+                        tvTitle.setText(marker.getTitle());
+                        tvSnippet.setText(marker.getSnippet());
+                        return myView;
+                    }
+                });
+                setUpMap();
+
+            }
+        }
+    }
+
+    AdapterView.OnItemSelectedListener spMapTypeListener=new AdapterView.OnItemSelectedListener() {
+        @Override
+        public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
+            switch (position){
+                case 0:  //一般圖
+                    mMap.setMapType(GoogleMap.MAP_TYPE_NORMAL);
+                    break;
+                case 1: //衛星圖
+                    mMap.setMapType(GoogleMap.MAP_TYPE_SATELLITE);
+                    break;
+                case 2:  //混合圖
+                    mMap.setMapType(GoogleMap.MAP_TYPE_HYBRID);
+                    break;
+                case 3:  //地形圖
+                    mMap.setMapType(GoogleMap.MAP_TYPE_TERRAIN);
+                    break;
+            }
+
+        }
+
+        @Override
+        public void onNothingSelected(AdapterView<?> parent) {
+
+        }
+    };
+
+    View.OnClickListener cbsListener=new View.OnClickListener() {
+        @Override
+        public void onClick(View v) {
+            switch (v.getId()){
+                case R.id.checkBox:
+                    mMap.setTrafficEnabled(cbTraffic.isChecked());
+                    break;
+                case R.id.checkBox2:
+                    settings.setMyLocationButtonEnabled(cbMyLocationButton.isChecked());
+                    break;
+                case R.id.checkBox3:
+                    mMap.setMyLocationEnabled(cbMyLocationLayer.isChecked());
+                    break;
+                case R.id.checkBox4:
+                    settings.setZoomControlsEnabled(cbZoomControl.isChecked());
+                    break;
+                case R.id.checkBox5:
+                    settings.setCompassEnabled(cbCompass.isChecked());
+                    break;
+                case R.id.checkBox6:
+                    settings.setScrollGesturesEnabled(cbScrollGesture.isChecked());
+                    break;
+                case R.id.checkBox7:
+                    settings.setZoomGesturesEnabled(cbZoomGesture.isChecked());
+                    break;
+                case R.id.checkBox8:
+                    settings.setRotateGesturesEnabled(cbRotateGesture.isChecked());
+                    break;
+                case R.id.checkBox9:
+                    settings.setTiltGesturesEnabled(cbTileGesture.isChecked());
+                    break;
+            }
+
+        }
+    };
+
+    void displayDialog(){
+        String[] items={"Add Mark","Start point","End point","Clear all Mark"};
+        new AlertDialog.Builder(this)
+                .setTitle("標記或取消")
+                .setItems(items, new DialogInterface.OnClickListener() {
+                    @Override
+                    public void onClick(DialogInterface dialog, int which) {
+                        switch (which){
+                            case 0:
+                                mMap.addMarker(new MarkerOptions()
+                                                .position(point1)
+                                                .title("Title")
+                                                .snippet("snippet")
+                                                .icon(BitmapDescriptorFactory.fromResource(R.drawable.flag_finish))
+                                                .anchor(0f,1f)
+                                );
+                                break;
+                            case 1:
+                                startPoint=point1;
+                                mMap.addMarker(new MarkerOptions()
+                                                .position(point1)
+                                                .title("Title")
+                                                .snippet("snippet")
+                                                .icon(BitmapDescriptorFactory.fromResource(R.drawable.flag_finish))
+                                                .anchor(0f,1f)
+                                );
+                                break;
+                            case 2:
+                                endPoint=point1;
+                                mMap.addMarker(new MarkerOptions()
+                                                .position(point1)
+                                                .title("Title")
+                                                .snippet("snippet")
+                                                .icon(BitmapDescriptorFactory.fromResource(R.drawable.flag_finish))
+                                                .anchor(0f,1f)
+                                );
+                                new Thread(new Runnable() {
+                                    @Override
+                                    public void run() {
+//                                        String strJson=getJsonString();
+//                                        String encodeString=getEncodeString(strJson);
+//                                        ArrayList<LatLng> points=decodePolylines(encodeString);
+
+                                        points=decodePolylines(getEncodeString(getJsonString()));
+                                        handler.sendEmptyMessage(0);
+                                    }
+                                }).start();
+
+                                break;
+                            case 3:
+                                mMap.clear();
+                                break;
+                        }
+
+                    }
+                })
+                .show();
+    }
+
+
+    private void setUpMap() {
+        // circle
+        LatLng latLng=new LatLng(24.142975, 120.689295);
+        CircleOptions circleOptions=new CircleOptions()
+                .center(latLng)
+                .radius(100.0)
+//                .fillColor(Color.argb(0x55,0,0x88,0))
+                .fillColor(0x55008800)
+                .strokeColor(Color.BLACK)
+                .strokeWidth(3);
+        mMap.addCircle(circleOptions);
+
+        //polygon
+        mMap.addPolygon(new PolygonOptions()
+                .add(new LatLng(24.135925, 120.672773),
+                        new LatLng(24.142426, 120.679597),
+                        new LatLng(24.140155, 120.682171),
+                        new LatLng(24.135181, 120.676936))
+                .fillColor(0x55886600)
+                .strokeColor(Color.BLUE)
+                .strokeWidth(5)
+        );
+
+        //mark
+        mMap.addMarker(new MarkerOptions()
+                        .position(new LatLng(24.143288, 120.684274))
+                        .title("Title")
+                        .snippet("snippet")
+                        .icon(BitmapDescriptorFactory.fromResource(R.drawable.flag_finish))
+                .anchor(0f,1f)
+        );
+
+        //CameraUpdtae
+        mMap.animateCamera(CameraUpdateFactory.newLatLngZoom(new LatLng(24.138745, 120.683588), 16.0f));
+
+        //Add Image on Map
+        mMap.addGroundOverlay(new GroundOverlayOptions()
+                .anchor(0.5f,1.0f)
+                .bearing(0f)
+                .image(BitmapDescriptorFactory.fromResource(R.drawable.tower))
+                .position(new LatLng(24.138745, 120.683588),100.0f)
+        );
+    }
+    //取網頁json字串
+    String getJsonString(){
+        String strUrl="https://maps.googleapis.com/maps/api/directions/json?origin="+startPoint.latitude+","+startPoint.longitude+"&destination="+endPoint.latitude+","+endPoint.longitude;
+
+        StringBuilder sb=new StringBuilder();
+        try {
+            URL url=new URL(strUrl);
+            URLConnection conn=url.openConnection();
+            BufferedReader br=new BufferedReader(new InputStreamReader(conn.getInputStream()));
+
+            String readString=null;
+            while ((readString=br.readLine())!=null){
+                sb.append(readString);
+            }
+        } catch (MalformedURLException e) {
+            e.printStackTrace();
+        } catch(IOException Ｅ){
+
+        }
+        return sb.toString();
+    }
+    //取回編碼的字串
+    String getEncodeString(String jsonString){
+        String encodeString=null;
+        try {
+            JSONObject jo=new JSONObject(jsonString);
+            encodeString=jo.getJSONArray("routes").getJSONObject(0).getJSONObject("overview_polyline").getString("points");
+        } catch (JSONException e) {
+            e.printStackTrace();
+        }
+        return encodeString;
+    }
+
+    private ArrayList<LatLng> decodePolylines(String poly){
+        ArrayList<LatLng> points=new ArrayList<>();
+        int len = poly.length();
+        int index = 0;
+        int lat = 0;
+        int lng = 0;
+        while (index < len){
+            int b, shift = 0, result = 0;
+            do{
+                b = poly.charAt(index++) - 63;
+                result |= (b & 0x1f) << shift;
+                shift += 5;
+            } while (b >= 0x20);
+            int dlat = ((result & 1) != 0 ? ~(result >> 1) : (result >> 1));
+            lat += dlat;
+
+            shift = 0;
+            result = 0;
+            do{
+                b = poly.charAt(index++) - 63;
+                result |= (b & 0x1f) << shift;
+                shift += 5;
+            } while (b >= 0x20);
+            int dlng = ((result & 1) != 0 ? ~(result >> 1) : (result >> 1));
+            lng += dlng;
+
+            LatLng p = new LatLng((double) lat / 1E5, (double) lng / 1E5);
+            points.add(p);
+        }
+        return points;
+    }
+
+    //用GeoCoder來取得緯經度
+    void getGeoCoder(){
+        Geocoder geocoder=new Geocoder(this);
+        int maxResult=1;
+        try {
+            List<Address> addresses=geocoder.getFromLocationName(etAddress.getText().toString(),maxResult);
+            for(Address ads:addresses){
+                LatLng point=new LatLng(ads.getLatitude(),ads.getLongitude());
+                mMap.addMarker(new MarkerOptions()
+                        .position(point)
+                        .title(etAddress.getText().toString())
+                        .snippet(ads.getAddressLine(0))
+                        .icon(BitmapDescriptorFactory.fromResource(R.drawable.flag_finish))
+                        .anchor(0f,1f)
+                );
+                mMap.animateCamera(CameraUpdateFactory.newLatLngZoom(point,16.0f));
+            }
+        } catch (IOException e) {
+            e.printStackTrace();
+        } catch(IllegalArgumentException e){
+
+        }
+    }
+
+    void getLocation(){
+        Criteria criteria=new Criteria();
+        criteria.setAccuracy(Criteria.ACCURACY_FINE);
+        provider=locationManager.getBestProvider(criteria,true);
+        Location location=locationManager.getLastKnownLocation(provider);
+
+        if(mMap!=null){
+            LatLng latLng=new LatLng(location.getLatitude(),location.getLongitude());
+            mMap.animateCamera(CameraUpdateFactory.newLatLngZoom(latLng,16.0f));
+        }
+    }
+
+    LocationListener locationListener=new LocationListener() {
+        @Override
+        public void onLocationChanged(Location location) {
+            if(mMap!=null){
+                LatLng latLng=new LatLng(location.getLatitude(),location.getLongitude());
+                mMap.animateCamera(CameraUpdateFactory.newLatLngZoom(latLng, 16.0f));
+                StringBuilder sb=new StringBuilder();
+                sb.append("Provider:"+provider)
+                        .append("海?:"+location.getAltitude()+"公尺")
+                        .append("方位:"+location.getBearing())
+                        .append("速度"+location.getSpeed()+"公尺/秒");
+                Toast.makeText(MapsActivity.this, sb, Toast.LENGTH_SHORT).show();
+            }
+
+        }
+
+        @Override
+        public void onStatusChanged(String provider, int status, Bundle extras) {
+
+        }
+
+        @Override
+        public void onProviderEnabled(String provider) {
+
+        }
+
+        @Override
+        public void onProviderDisabled(String provider) {
+
+        }
+    };
+
+}

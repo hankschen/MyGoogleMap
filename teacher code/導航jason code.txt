@@ -1,0 +1,274 @@
+package com.hui.class1_googlemap;
+
+import android.app.AlertDialog;
+import android.content.DialogInterface;
+import android.graphics.Color;
+import android.support.v4.app.FragmentActivity;
+import android.os.Bundle;
+import android.view.View;
+import android.widget.AdapterView;
+import android.widget.CheckBox;
+import android.widget.Spinner;
+import android.widget.TextView;
+
+import com.google.android.gms.maps.CameraUpdateFactory;
+import com.google.android.gms.maps.GoogleMap;
+import com.google.android.gms.maps.SupportMapFragment;
+import com.google.android.gms.maps.UiSettings;
+import com.google.android.gms.maps.model.BitmapDescriptorFactory;
+import com.google.android.gms.maps.model.CircleOptions;
+import com.google.android.gms.maps.model.LatLng;
+import com.google.android.gms.maps.model.Marker;
+import com.google.android.gms.maps.model.MarkerOptions;
+import com.google.android.gms.maps.model.PolygonOptions;
+
+import java.util.ArrayList;
+
+public class MapsActivity extends FragmentActivity {
+    Spinner spMapType;
+    CheckBox cbTraffic,cbMyLocationButton,cbMyLocationLayer,cbZoomControl,
+             cbCompass,cbScrollGesture,cbZoomGesture,cbRotateGesture,cbTileGesture;
+
+    private GoogleMap mMap; // Might be null if Google Play services APK is not available.
+    UiSettings settings;
+    LatLng point1;
+
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        setContentView(R.layout.activity_map);
+        setUpMapIfNeeded();
+        findviews();
+    }
+
+    void findviews(){
+        spMapType=(Spinner)findViewById(R.id.spinner);
+        spMapType.setOnItemSelectedListener(spMapTypeListener);
+        cbTraffic=(CheckBox)findViewById(R.id.checkBox);
+        cbTraffic.setOnClickListener(cbsListener);
+        cbMyLocationButton=(CheckBox)findViewById(R.id.checkBox2);
+        cbMyLocationButton.setOnClickListener(cbsListener);
+        cbMyLocationLayer=(CheckBox)findViewById(R.id.checkBox3);
+        cbMyLocationLayer.setOnClickListener(cbsListener);
+        cbZoomControl=(CheckBox)findViewById(R.id.checkBox4);
+        cbZoomControl.setOnClickListener(cbsListener);
+        cbCompass=(CheckBox)findViewById(R.id.checkBox5);
+        cbCompass.setOnClickListener(cbsListener);
+        cbScrollGesture=(CheckBox)findViewById(R.id.checkBox6);
+        cbScrollGesture.setOnClickListener(cbsListener);
+        cbZoomGesture=(CheckBox)findViewById(R.id.checkBox7);
+        cbZoomGesture.setOnClickListener(cbsListener);
+        cbRotateGesture=(CheckBox)findViewById(R.id.checkBox8);
+        cbRotateGesture.setOnClickListener(cbsListener);
+        cbTileGesture=(CheckBox)findViewById(R.id.checkBox9);
+        cbTileGesture.setOnClickListener(cbsListener);
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        setUpMapIfNeeded();
+    }
+
+
+    private void setUpMapIfNeeded() {
+        // Do a null check to confirm that we have not already instantiated the map.
+        if (mMap == null) {
+            // Try to obtain the map from the SupportMapFragment.
+            mMap = ((SupportMapFragment) getSupportFragmentManager().findFragmentById(R.id.map))
+                    .getMap();
+            // Check if we were successful in obtaining the map.
+            if (mMap != null) {
+                settings=mMap.getUiSettings();
+                mMap.setOnMapLongClickListener(new GoogleMap.OnMapLongClickListener() {
+                    @Override
+                    public void onMapLongClick(LatLng latLng) {
+                        point1=latLng;
+                        displayDialog();
+
+                    }
+                });
+
+                mMap.setInfoWindowAdapter(new GoogleMap.InfoWindowAdapter() {
+                    @Override
+                    public View getInfoWindow(Marker marker) {
+                        return null;
+                    }
+
+                    @Override
+                    public View getInfoContents(Marker marker) {
+                        View myView=getLayoutInflater().inflate(R.layout.info_windows_view,null);
+                        TextView tvTitle=(TextView)myView.findViewById(R.id.textView);
+                        TextView tvSnippet=(TextView)myView.findViewById(R.id.textView2);
+                        tvTitle.setText("My Mark");
+                        tvSnippet.setText("snippet");
+                        return myView;
+                    }
+                });
+                setUpMap();
+
+            }
+        }
+    }
+
+    AdapterView.OnItemSelectedListener spMapTypeListener=new AdapterView.OnItemSelectedListener() {
+        @Override
+        public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
+            switch (position){
+                case 0:  //一般圖
+                    mMap.setMapType(GoogleMap.MAP_TYPE_NORMAL);
+                    break;
+                case 1: //衛星圖
+                    mMap.setMapType(GoogleMap.MAP_TYPE_SATELLITE);
+                    break;
+                case 2:  //混合圖
+                    mMap.setMapType(GoogleMap.MAP_TYPE_HYBRID);
+                    break;
+                case 3:  //地形圖
+                    mMap.setMapType(GoogleMap.MAP_TYPE_TERRAIN);
+                    break;
+            }
+
+        }
+
+        @Override
+        public void onNothingSelected(AdapterView<?> parent) {
+
+        }
+    };
+
+    View.OnClickListener cbsListener=new View.OnClickListener() {
+        @Override
+        public void onClick(View v) {
+            switch (v.getId()){
+                case R.id.checkBox:
+                    mMap.setTrafficEnabled(cbTraffic.isChecked());
+                    break;
+                case R.id.checkBox2:
+                    settings.setMyLocationButtonEnabled(cbMyLocationButton.isChecked());
+                    break;
+                case R.id.checkBox3:
+                    mMap.setMyLocationEnabled(cbMyLocationLayer.isChecked());
+                    break;
+                case R.id.checkBox4:
+                    settings.setZoomControlsEnabled(cbZoomControl.isChecked());
+                    break;
+                case R.id.checkBox5:
+                    settings.setCompassEnabled(cbCompass.isChecked());
+                    break;
+                case R.id.checkBox6:
+                    settings.setScrollGesturesEnabled(cbScrollGesture.isChecked());
+                    break;
+                case R.id.checkBox7:
+                    settings.setZoomGesturesEnabled(cbZoomGesture.isChecked());
+                    break;
+                case R.id.checkBox8:
+                    settings.setRotateGesturesEnabled(cbRotateGesture.isChecked());
+                    break;
+                case R.id.checkBox9:
+                    settings.setTiltGesturesEnabled(cbTileGesture.isChecked());
+                    break;
+            }
+
+        }
+    };
+
+    void displayDialog(){
+        String[] items={"Add Mark","Clear all Mark"};
+        new AlertDialog.Builder(this)
+                .setTitle("標記或取消")
+                .setItems(items, new DialogInterface.OnClickListener() {
+                    @Override
+                    public void onClick(DialogInterface dialog, int which) {
+                        switch (which){
+                            case 0:
+                                mMap.addMarker(new MarkerOptions()
+                                                .position(point1)
+                                                .title("Title")
+                                                .snippet("snippet")
+                                                .icon(BitmapDescriptorFactory.fromResource(R.drawable.flag_finish))
+                                                .anchor(0f,1f)
+                                );
+                                break;
+                            case 1:
+                                mMap.clear();
+                                break;
+                        }
+
+                    }
+                })
+                .show();
+    }
+
+
+    private void setUpMap() {
+        // circle
+        LatLng latLng=new LatLng(24.142975, 120.689295);
+        CircleOptions circleOptions=new CircleOptions()
+                .center(latLng)
+                .radius(100.0)
+//                .fillColor(Color.argb(0x55,0,0x88,0))
+                .fillColor(0x55008800)
+                .strokeColor(Color.BLACK)
+                .strokeWidth(3);
+        mMap.addCircle(circleOptions);
+
+        //polygon
+        mMap.addPolygon(new PolygonOptions()
+                .add(new LatLng(24.135925, 120.672773),
+                        new LatLng(24.142426, 120.679597),
+                        new LatLng(24.140155, 120.682171),
+                        new LatLng(24.135181, 120.676936))
+                .fillColor(0x55886600)
+                .strokeColor(Color.BLUE)
+                .strokeWidth(5)
+        );
+
+        //mark
+        mMap.addMarker(new MarkerOptions()
+                        .position(new LatLng(24.143288, 120.684274))
+                        .title("Title")
+                        .snippet("snippet")
+                        .icon(BitmapDescriptorFactory.fromResource(R.drawable.flag_finish))
+                .anchor(0f,1f)
+        );
+
+        //CameraUpdtae
+        mMap.animateCamera(CameraUpdateFactory.newLatLngZoom(new LatLng(24.138745, 120.683588), 16.0f));
+    }
+
+
+
+
+    private ArrayList<LatLng> decodePolylines(String poly){
+        ArrayList<LatLng> points=new ArrayList<>();
+        int len = poly.length();
+        int index = 0;
+        int lat = 0;
+        int lng = 0;
+        while (index < len){
+            int b, shift = 0, result = 0;
+            do{
+                b = poly.charAt(index++) - 63;
+                result |= (b & 0x1f) << shift;
+                shift += 5;
+            } while (b >= 0x20);
+            int dlat = ((result & 1) != 0 ? ~(result >> 1) : (result >> 1));
+            lat += dlat;
+
+            shift = 0;
+            result = 0;
+            do{
+                b = poly.charAt(index++) - 63;
+                result |= (b & 0x1f) << shift;
+                shift += 5;
+            } while (b >= 0x20);
+            int dlng = ((result & 1) != 0 ? ~(result >> 1) : (result >> 1));
+            lng += dlng;
+
+            LatLng p = new LatLng((double) lat / 1E5, (double) lng / 1E5);
+            points.add(p);
+        }
+        return points;
+    }
+}

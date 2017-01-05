@@ -1,0 +1,20 @@
+<resources>
+    <string name="app_name">Class20_GoogleMap</string>
+    <string name="title_activity_maps">Map</string>
+    <string-array name="MapType">
+        <item>一般圖</item>
+        <item>衛星圖</item>
+        <item>混合圖</item>
+        <item>地形圖</item>
+    </string-array>
+    <string name="Traffic">交通資訊</string>
+    <string name="MyLocationButton">自己位置按鈕</string>
+    <string name="MyLocationLayer">自己位置圖層</string>
+    <string name="ZoomControl">縮放按鈕</string>
+    <string name="Compasss">指北針</string>
+    <string name="ScrollGesture">滑動手勢</string>
+    <string name="ZoomGesture">縮放手勢</string>
+    <string name="RotateGesture">旋轉手勢</string>
+    <string name="TileGesture">傾斜手勢</string>
+
+</resources>
